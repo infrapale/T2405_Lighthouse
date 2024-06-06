@@ -64,7 +64,7 @@ void setup() {
     Serial.begin(9600);
     //while (!Serial); // wait until serial console is open, remove if not tethered to computer
     Serial.println("T2405 LightHouseMain");
-    watchdogSetup();
+    // watchdogSetup();
 
     Smart.begin(9600);
     //Serial.begin(SERIAL_BAUD);
@@ -73,12 +73,13 @@ void setup() {
  
     InitRfm69();
     setup_relays();
+    test_relays();
     // Initialize radio
     timer.setInterval(10, run_10ms);
     timer.setInterval(1000, run_1000ms);
     timer.setInterval(10000, run_10s);
     ///timer.setInterval(600000, run_10_minute);    
-    timer.setInterval(6000, run_10_minute);   
+    timer.setInterval(60000, run_10_minute);   
     TxDataReady = false;
     InitRadioReceive();
 
