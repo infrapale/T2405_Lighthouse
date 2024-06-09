@@ -30,45 +30,49 @@
 unsigned long resetTime = 0;
 #define doggieTickle() resetTime = millis(); 
 
-struct measure_data_struct {
-  float water_temperature;
-  float bmp180_temp;
-  float bmp180_pres;
-  float dht22_temp;
-  float dht22_hum;
-  float ldr_1;
+typedef struct
+{
+  float value;
+  bool  available;
+} reading_st;
+
+typedef struct  {
+  reading_st water_temp;
+  reading_st bmp180_temp;
+  reading_st dht22_temp;
+  reading_st ldr_1;
   byte measure_indx;
+} measure_data_struct_st;
+
+measure_data_struct_st meas =
+{
+  .water_temp   = {0.0, false},
+  .bmp180_temp  = {0.0, false},
+  .dht22_temp   = {0.0, false},
+  .ldr_1        = {0.0, false}
 };
 
-unit_type_entry Me ={"DOCK1","Terminal","T2405","T2505","T2405","18v06",'0'}; //len = 9,5,5,5,9,byte
-time_type MyTime = {2017, 1,30,12,05,30}; 
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 byte rad_turn = 0;
-byte read_turn = 0;
+//byte read_turn = 0;
 uint8_t radio_buff[RH_RF69_MAX_MESSAGE_LEN];
 byte tx_buff_ptr;
-measure_data_struct meas;
 
 boolean msgReady; 
-boolean SerialFlag;
-boolean TxDataReady;
 boolean AllMeasDone = false;
 DHT_Unified dht(DHTPIN, DHTTYPE);
-sensors_event_t Sensor1; 
 SmartLoop Smart = SmartLoop(1);
 SimpleTimer timer;
 
 void setup() {
     Wire.begin();
     delay(4000);
-    Serial.begin(9600);
+    Smart.begin(9600);
     //while (!Serial); // wait until serial console is open, remove if not tethered to computer
     Serial.println("T2405 LightHouseMain");
     // watchdogSetup();
-
-    Smart.begin(9600);
-    //Serial.begin(SERIAL_BAUD);
-    InitSoftCom();
+    meas.measure_indx = 0;
+    SensorComInitialize();
     dht.begin();
  
     InitRfm69();
@@ -80,7 +84,6 @@ void setup() {
     timer.setInterval(10000, run_10s);
     ///timer.setInterval(600000, run_10_minute);    
     timer.setInterval(60000, run_10_minute);   
-    TxDataReady = false;
     InitRadioReceive();
 
 }
@@ -88,7 +91,7 @@ void setup() {
 void loop() {
     byte i;
 
-    SoftComMonitor();
+    SensorComMonitor();
     timer.run(); 
    
     //check if something was received (could be an interrupt from the radio)
@@ -96,7 +99,7 @@ void loop() {
 
 }
 
-int ConvertFloatSensorToJsonRadioPacket(char *zone, char *sensor, float value, char *remark ){
+int ConvertSensorToJson(char *zone, char *sensor, float value, char *remark ){
     byte i;
     unsigned int json_len;
     //Serial.println("ConvertFloatSensorToJson");
@@ -135,59 +138,47 @@ void run_10ms(void){
    if( Smart.Monitor()) msgReady = true;
    relay_do_every_10ms();
 }
+
 void run_1000ms(void){
    doggieTickle(); 
-   if (++MyTime.second > 59 ){
-      MyTime.second = 0;
-      if (++MyTime.minute > 59 ){
-         MyTime.minute = 0;
-         if (++MyTime.hour > 23){
-            MyTime.hour = 0;
-         }
-      }   
-   } 
+  //  if (++MyTime.second > 59 ){
+  //     MyTime.second = 0;
+  //     if (++MyTime.minute > 59 ){
+  //        MyTime.minute = 0;
+  //        if (++MyTime.hour > 23){
+  //           MyTime.hour = 0;
+  //        }
+  //     }   
+  //  } 
 }
 
-void ReadSensors(){
-   int i;
-   
-   if (++meas.measure_indx > 7) meas.measure_indx=1;
-      switch (meas.measure_indx){
-         case 1: SendSoftCom("?TLake"); break;
-         case 2: SendSoftCom("?BMP180T"); break;
-         case 3: SendSoftCom("?BMP180P"); break;
-         case 4: SendSoftCom("?DHT22T"); break;
-         case 5: SendSoftCom("?DHT22H"); break;
-         case 6: SendSoftCom("?LDR1"); break;
-         case 7: AllMeasDone = true; break;
-       }
-}
 
 void run_10s(void){ 
-   ReadSensors();
+  SensorComRequestReading();
 }
 
 void run_10_minute(void){
-   if (++rad_turn > 6) rad_turn = 1;
+   if (++rad_turn > 3) rad_turn = 0;
    if (AllMeasDone) {
       switch(rad_turn){
+          case 0:
+              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_Water",meas.water_temp.value,"") > 0) ) 
+                radiate_msg(radio_buff);
+              break;
           case 1:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"T_Water",meas.water_temperature,"") > 0 ) radiate_msg(radio_buff);
+              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_bmp180",meas.bmp180_temp.value,"") > 0)) 
+                radiate_msg(radio_buff);
               break;
           case 2:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"T_bmp180",meas.bmp180_temp,"") > 0 ) radiate_msg(radio_buff);
+              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_dht22",meas.dht22_temp.value,"") > 0 )) 
+                radiate_msg(radio_buff);
               break;
           case 3:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"P_bmp180",meas.bmp180_pres,"") > 0 ) radiate_msg(radio_buff);
+              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"ldr1",meas.ldr_1.value,"") > 0 )) 
+                radiate_msg(radio_buff);
               break;
-          case 4:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"T_dht22",meas.dht22_temp,"") > 0 ) radiate_msg(radio_buff);
-              break;
-          case 5:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"H_dht22",meas.dht22_hum,"") > 0 ) radiate_msg(radio_buff);
-              break;
-          case 6:
-              if (ConvertFloatSensorToJsonRadioPacket(ZONE,"ldr1",meas.ldr_1,"") > 0 ) radiate_msg(radio_buff);
+          default:
+              rad_turn = 0;
               break;
       }
    }
