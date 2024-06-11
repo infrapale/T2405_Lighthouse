@@ -44,13 +44,12 @@ void SensorComDebug(void){
 
 
 void SensorComRequestReading(){
-    if (++meas.measure_indx > 4) meas.measure_indx=0;
+    if (++meas.measure_indx > 3) meas.measure_indx=0;
     switch (meas.measure_indx){
         case 0: SensorComSendStr("?TLake"); break;
         case 1: SensorComSendStr("?BMP180T"); break;
         case 2: SensorComSendStr("?DHT22T"); break;
         case 3: SensorComSendStr("?LDR1"); break;
-        case 4: AllMeasDone = true; break;
         default:  meas.measure_indx=0; break;
     }
 }
@@ -114,16 +113,19 @@ void SensorComMonitor(void) {
             {
               meas.bmp180_temp.value = atof(SensorComBuff+10);
               meas.bmp180_temp.available = true;
+              Serial.println("!T_BMP180");
             }
             if(SensorComChkMsg(SensorComBuff, "*T_DHT22=") == 9)  
             {
               meas.dht22_temp.value = atof(SensorComBuff+9);
               meas.dht22_temp.available = true;
+              Serial.println("!T_DHT22");
             }
             if(SensorComChkMsg(SensorComBuff, "*LDR_1=") == 7)  
             {
               meas.ldr_1.value = atof(SensorComBuff+7); 
               meas.ldr_1.available = true;
+              Serial.println("!LDR_1");
             }
            
        }    

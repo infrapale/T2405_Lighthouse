@@ -13,7 +13,7 @@
 #include <VillaAstridCommon.h>
 #include <SimpleTimer.h> 
 #include <SmartLoop.h>
-#include <DHT_U.h>
+#include <avr_watchdog.h>
 //#include <AM2320.h>
 
 //*********************************************************************************************
@@ -28,7 +28,8 @@
 #define DHTTYPE DHT22  
 // Watchdog
 unsigned long resetTime = 0;
-#define doggieTickle() resetTime = millis(); 
+AVR_Watchdog watchdog(4);
+// #define doggieTickle() resetTime = millis(); 
 
 typedef struct
 {
@@ -59,32 +60,36 @@ uint8_t radio_buff[RH_RF69_MAX_MESSAGE_LEN];
 byte tx_buff_ptr;
 
 boolean msgReady; 
-boolean AllMeasDone = false;
-DHT_Unified dht(DHTPIN, DHTTYPE);
 SmartLoop Smart = SmartLoop(1);
 SimpleTimer timer;
 
 void setup() {
+    cli();
     Wire.begin();
     delay(4000);
+    watchdog.set_timeout(4);
+    sei();
     Smart.begin(9600);
     //while (!Serial); // wait until serial console is open, remove if not tethered to computer
     Serial.println("T2405 LightHouseMain");
-    // watchdogSetup();
+    Serial.println(__DATE__); Serial.println(__TIME__);
+    //watchdogSetup();
     meas.measure_indx = 0;
     SensorComInitialize();
-    dht.begin();
  
     InitRfm69();
     setup_relays();
-    test_relays();
+    //test_relays();
     // Initialize radio
     timer.setInterval(10, run_10ms);
     timer.setInterval(1000, run_1000ms);
     timer.setInterval(10000, run_10s);
     ///timer.setInterval(600000, run_10_minute);    
-    timer.setInterval(60000, run_10_minute);   
+    timer.setInterval(600000, run_10_minute);   
     InitRadioReceive();
+
+    // Serial.println("Jam"); while(true) ;
+
 
 }
 
@@ -93,7 +98,7 @@ void loop() {
 
     SensorComMonitor();
     timer.run(); 
-   
+    watchdog.clear();
     //check if something was received (could be an interrupt from the radio)
     ReadRadioMsg();
 
@@ -122,6 +127,7 @@ int ConvertSensorToJson(char *zone, char *sensor, float value, char *remark ){
     if (json_len <= RH_RF69_MAX_MESSAGE_LEN){
        for (i=0; i<RH_RF69_MAX_MESSAGE_LEN; i++)radio_buff[i]=0;
        JsonString.toCharArray(radio_buff,RH_RF69_MAX_MESSAGE_LEN);
+       // Serial.println(JsonString);
        // Serial.println(json_len);
        return( json_len );
     }
@@ -140,7 +146,6 @@ void run_10ms(void){
 }
 
 void run_1000ms(void){
-   doggieTickle(); 
   //  if (++MyTime.second > 59 ){
   //     MyTime.second = 0;
   //     if (++MyTime.minute > 59 ){
@@ -158,30 +163,30 @@ void run_10s(void){
 }
 
 void run_10_minute(void){
-   if (++rad_turn > 3) rad_turn = 0;
-   if (AllMeasDone) {
-      switch(rad_turn){
-          case 0:
-              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_Water",meas.water_temp.value,"") > 0) ) 
-                radiate_msg(radio_buff);
-              break;
-          case 1:
-              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_bmp180",meas.bmp180_temp.value,"") > 0)) 
-                radiate_msg(radio_buff);
-              break;
-          case 2:
-              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_dht22",meas.dht22_temp.value,"") > 0 )) 
-                radiate_msg(radio_buff);
-              break;
-          case 3:
-              if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"ldr1",meas.ldr_1.value,"") > 0 )) 
-                radiate_msg(radio_buff);
-              break;
-          default:
-              rad_turn = 0;
-              break;
-      }
-   }
+  //Serial.print("rad_turn = "); Serial.println(rad_turn);
+  if (++rad_turn > 3) rad_turn = 0;
+  switch(rad_turn)
+  {
+      case 0:
+          if (meas.water_temp.available && (ConvertSensorToJson(ZONE,"T_Water",meas.water_temp.value,"") > 0) ) 
+            radiate_msg(radio_buff);
+          break;
+      case 1:
+          if (meas.bmp180_temp.available && (ConvertSensorToJson(ZONE,"T_bmp180",meas.bmp180_temp.value,"") > 0)) 
+            radiate_msg(radio_buff);
+          break;
+      case 2:
+          if (meas.dht22_temp.available && (ConvertSensorToJson(ZONE,"T_dht22",meas.dht22_temp.value,"") > 0 )) 
+            radiate_msg(radio_buff);
+          break;
+      case 3:
+          if (meas.ldr_1.available && (ConvertSensorToJson(ZONE,"ldr1",meas.ldr_1.value,"") > 0 )) 
+            radiate_msg(radio_buff);
+          break;
+      default:
+          rad_turn = 0;
+          break;
+  }
 }
 
 

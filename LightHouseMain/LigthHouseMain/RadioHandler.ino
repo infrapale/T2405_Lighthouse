@@ -68,12 +68,12 @@ void ReadRadioMsg(){
    if (rf69.recv(radio_buff, &len)) {
       if (!len) return;
       radio_buff[len] = 0;
-      Serial.print("Received [");
-      Serial.print(len);
-      Serial.print("]: ");
-      Serial.println((char*)radio_buff);
-      Serial.print("RSSI: ");
-      Serial.println(rf69.lastRssi(), DEC);
+      // Serial.print("Received [");
+      // Serial.print(len);
+      // Serial.print("]: ");
+      // Serial.println((char*)radio_buff);
+      // Serial.print("RSSI: ");
+      // Serial.println(rf69.lastRssi(), DEC);
       do_continue = true;
      }
     else do_continue = false;
@@ -89,14 +89,14 @@ void ReadRadioMsg(){
     }
     if (do_continue) {
       if (radio_buff[3] != 'L' ) do_continue = false;
-      Serial.println("<*RL");
+      // Serial.println("<*RL");
     }
     if (do_continue) {
       if (radio_buff[4] != 'H' ) do_continue = false;
     }
     if (do_continue) {
       if (radio_buff[5] != '_' ) do_continue = false;
-      Serial.println("<*RLH_");
+      // Serial.println("<*RLH_");
     }
     if (do_continue) {
        switch(radio_buff[6]){
@@ -109,8 +109,8 @@ void ReadRadioMsg(){
       if (radio_buff[7] != '=' ) do_continue = false;
     }
     if (do_continue) {
-        Serial.print("<*RLH_X=");
-        Serial.println(char(radio_buff[8]));
+        // Serial.print("<*RLH_X=");
+        // Serial.println(char(radio_buff[8]));
         switch(radio_buff[8]){
            case 'T': toggle_relay(relay_indx); break;
            case '1': turn_on_relay(relay_indx); break;
