@@ -113,19 +113,19 @@ void SensorComMonitor(void) {
             {
               meas.bmp180_temp.value = atof(SensorComBuff+10);
               meas.bmp180_temp.available = true;
-              Serial.println("!T_BMP180");
+              // Serial.println("!T_BMP180");
             }
             if(SensorComChkMsg(SensorComBuff, "*T_DHT22=") == 9)  
             {
               meas.dht22_temp.value = atof(SensorComBuff+9);
               meas.dht22_temp.available = true;
-              Serial.println("!T_DHT22");
+              // Serial.println("!T_DHT22");
             }
             if(SensorComChkMsg(SensorComBuff, "*LDR_1=") == 7)  
             {
               meas.ldr_1.value = atof(SensorComBuff+7); 
               meas.ldr_1.available = true;
-              Serial.println("!LDR_1");
+              // Serial.println("!LDR_1");
             }
            
        }    
